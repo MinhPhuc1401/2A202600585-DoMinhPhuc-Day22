@@ -1,0 +1,11 @@
+# BigGPU extras (A100 40GB / L4 24GB / H100). Install IN ADDITION to requirements.txt.
+#
+#     pip install -r requirements.txt -r requirements-biggpu.txt
+#
+# vLLM and flash-attn need CUDA toolchain. If they fail to compile, you can
+# still run the BigGPU notebook — those are only needed for the optional
+# vLLM-serving cell at the end of notebook 05.
+
+vllm>=0.6.4,<1.0                        # OpenAI-compat serving — notebook 05 (BigGPU only)
+flash-attn>=2.7,<3.0; sys_platform == 'linux'   # 2-3× speedup on A100/H100
+deepspeed>=0.15,<1.0                    # ZeRO-3 if you want to push past 13B

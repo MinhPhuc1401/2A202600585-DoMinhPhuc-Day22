@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+# NOTE: notebooks/*.ipynb IS committed for submission (with output cells preserved
+# for grading). The Jupytext `.py` files are the source-of-truth template;
+# `.ipynb` is the student's executed deliverable.
+
+# Lab artifacts (regenerated on every run; do not commit)
+data/pref/
+data/eval_prompts.json
+adapters/sft-mini/
+adapters/dpo/
+adapters/orpo/
+gguf/
+*.gguf
+runs/
+wandb/
+
+# HuggingFace cache (Colab + local — model weights are huge)
+.cache/
+hf_cache/
+
+# Env / secrets
+.env
+.env.local
+*.token
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

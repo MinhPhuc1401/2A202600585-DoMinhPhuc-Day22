@@ -1,0 +1,40 @@
+# T4 baseline — fits free Colab (16 GB VRAM) + most laptop GPUs (≥ 12 GB).
+# Pins are lower-bound + upper-bound to keep the lab reproducible while
+# allowing wheels for new Python versions.
+
+# ── Core training stack ───────────────────────────────────────
+# Unsloth bundles patched transformers + bitsandbytes + xformers — its version
+# pin is what locks the Unsloth + TRL compatibility matrix. Bump together.
+unsloth>=2025.10,<2026.5                # patched kernels for 7B-on-T4
+transformers>=4.46,<5.0
+trl>=0.12,<0.20                         # DPOTrainer + DPOConfig surface
+peft>=0.13,<1.0
+accelerate>=1.1,<2.0
+bitsandbytes>=0.44,<1.0                 # NF4 + 8-bit optim
+datasets>=3.1,<4.0
+
+# ── Plotting + reporting ──────────────────────────────────────
+matplotlib>=3.9,<4.0
+pandas>=2.2,<3.0
+pyarrow>=17,<22                         # parquet for data/pref/
+
+# ── Local serving (notebook 05) ───────────────────────────────
+# llama-cpp-python compiles llama.cpp inside the wheel — lets us smoke-test
+# the GGUF without needing a separate llama.cpp install.
+llama-cpp-python>=0.3,<1.0
+
+# ── Benchmark suite (notebook 06) ────────────────────────────
+# lm-eval-harness — field-standard scorer for IFEval, GSM8K, MMLU.
+# Extras: ifeval (langdetect), math (sympy for LaTeX matching).
+lm-eval[ifeval,math]>=0.4.5,<1.0
+
+# ── Notebook ──────────────────────────────────────────────────
+jupyterlab>=4.3,<5.0
+jupytext>=1.16,<2.0
+
+# ── Optional API judges (notebook 04) — pulled if you set API keys ──
+openai>=1.55,<2.0                       # gpt-4o-mini judge
+anthropic>=0.40,<1.0                    # claude-haiku judge
+
+# ── Test ──────────────────────────────────────────────────────
+pytest>=8.3,<9.0

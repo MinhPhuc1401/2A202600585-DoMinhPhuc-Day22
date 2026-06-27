@@ -1,0 +1,43 @@
+[project]
+name = "day22-dpo-alignment-lab"
+version = "0.1.0"
+description = "VinUni AICB Day 22 — DPO/ORPO Alignment lab (Track 3)"
+requires-python = ">=3.10,<3.13"
+readme = "README.md"
+
+# T4 baseline (mirrors requirements.txt). `uv pip install -e .` is faster
+# than venv+pip; both work.
+dependencies = [
+    "unsloth>=2025.10,<2026.5",
+    "transformers>=4.46,<5.0",
+    "trl>=0.12,<0.20",
+    "peft>=0.13,<1.0",
+    "accelerate>=1.1,<2.0",
+    "bitsandbytes>=0.44,<1.0",
+    "datasets>=3.1,<4.0",
+    "matplotlib>=3.9,<4.0",
+    "pandas>=2.2,<3.0",
+    "pyarrow>=17,<22",
+    "llama-cpp-python>=0.3,<1.0",
+    "lm-eval[ifeval,math]>=0.4.5,<1.0",
+    "jupyterlab>=4.3,<5.0",
+    "jupytext>=1.16,<2.0",
+    "openai>=1.55,<2.0",
+    "anthropic>=0.40,<1.0",
+    "pytest>=8.3,<9.0",
+]
+
+[project.optional-dependencies]
+biggpu = [
+    "vllm>=0.6.4,<1.0",
+    "flash-attn>=2.7,<3.0",
+    "deepspeed>=0.15,<1.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["scripts"]
+python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
