@@ -61,14 +61,36 @@ def main():
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
+    import shutil
+    if output.exists():
+        shutil.rmtree(output)
+    output.mkdir(parents=True, exist_ok=True)
+    print(f"Reset DPO output directory: {output}")
+
     model = PeftModel.from_pretrained(model, args.sft_path, is_trainable=True)
-    model = FastLanguageModel.get_peft_model(
-        model, r=16, lora_alpha=32, lora_dropout=0.0, bias="none",
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                        "gate_proj", "up_proj", "down_proj"],
-        use_gradient_checkpointing="unsloth",
-        random_state=42, use_rslora=False, loftq_config=None,
+    model.train()
+
+    trainable_params = sum(
+        p.numel()
+        for p in model.parameters()
+        if p.requires_grad
     )
+    total_params = sum(
+        p.numel()
+        for p in model.parameters()
+    )
+    print(f"Model class: {model.__class__.__name__}")
+    if hasattr(model, "active_adapters"):
+        print(f"Active PEFT adapters: {model.active_adapters}")
+    print(f"Trainable params for DPO: {trainable_params:,}")
+    print(f"Total params: {total_params:,}")
+    print(f"Trainable percentage: {100 * trainable_params / total_params:.4f}%")
+
+    if trainable_params == 0:
+        raise RuntimeError(
+            "No trainable LoRA parameters found. "
+            "Make sure the SFT adapter was loaded with is_trainable=True."
+        )
 
     config = DPOConfig(
         output_dir=str(output.parent / f"{output.name}-checkpoints"),

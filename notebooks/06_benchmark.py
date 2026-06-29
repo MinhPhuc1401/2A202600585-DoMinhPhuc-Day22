@@ -1,14 +1,18 @@
 # ---
 # jupyter:
 #   jupytext:
-#     formats: py:percent
+#     text_representation:
+#       extension: .py
+#       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.19.4
+#   kernelspec:
+#     display_name: Python 3
+#     name: python3
 # ---
 
-# %% [markdown]
-# # NB6 — LLM Benchmark: SFT-only vs SFT+DPO  (OPTIONAL / BONUS)
-#
-# > **Optional (bonus).** Core lab = NB1--NB4. This runs lm-eval (~30 min on T4)
-# > and is skip-friendly --- do it only if you want quantitative deltas.
+# %% [markdown] id="6c3560aa"
+# # NB6 — LLM Benchmark: SFT-only vs SFT+DPO
 #
 # **Stack:** `lm-eval-harness` (IFEval, GSM8K, MMLU) + hand-rolled AlpacaEval-lite (judge-based).
 # Maps to deck §8.1–§8.5 (Đánh giá Alignment): static suites · judge-based suites · reward-model
@@ -22,10 +26,10 @@
 # > benchmark có thể *giảm* sau DPO — đó là alignment tax (chat-tuning trade-off với reasoning),
 # > không phải bug. Document trong REFLECTION § 7.
 
-# %% [markdown]
+# %% [markdown] id="74dd7a1c"
 # ## 0. Setup
 
-# %%
+# %% id="8c1ef614"
 import os
 import json
 import gc
@@ -62,15 +66,15 @@ print(f"MMLU:            {LIMIT_MMLU} questions")
 print(f"AlpacaEval-lite: {LIMIT_ALPACA} prompts")
 print(f"output:          {EVAL_OUT}")
 
-# %%
+# %% id="a4cb8b6c"
 import torch
 
 assert torch.cuda.is_available(), "Need GPU. See HARDWARE-GUIDE.md."
 
-# %% [markdown]
+# %% [markdown] id="5ce02c15"
 # ## 1. Helper — run lm-eval on a model+adapter pair
 
-# %%
+# %% id="a2663e82"
 import subprocess
 
 
@@ -100,14 +104,14 @@ def run_lm_eval(adapter_path, tasks, limit, num_fewshot, label):
     return json.loads(out_files[-1].read_text())["results"]
 
 
-# %% [markdown]
+# %% [markdown] id="28d86be4"
 # ## 2. IFEval — Instruction-Following (programmatic)
 #
 # **What it tests:** can the model follow precise format instructions like "respond in 3 bullets."
 # 540 prompts, scored programmatically. No judge needed. **Why DPO matters:** chat alignment
 # is exactly the skill IFEval measures.
 
-# %%
+# %% id="a96fe2d9"
 print(">>> SFT-only on IFEval")
 sft_ifeval = run_lm_eval(SFT_PATH, "ifeval", LIMIT_IFEVAL, num_fewshot=0, label="sft")
 gc.collect()
@@ -118,13 +122,13 @@ dpo_ifeval = run_lm_eval(DPO_PATH, "ifeval", LIMIT_IFEVAL, num_fewshot=0, label=
 gc.collect()
 torch.cuda.empty_cache()
 
-# %% [markdown]
+# %% [markdown] id="a1f4f3a4"
 # ## 3. GSM8K — Grade-School Math (alignment tax probe)
 #
 # **What it tests:** 1.3K word problems, exact-match on the `####` final answer.
 # **Why DPO matters:** chat-aligned models often *lose* a few points on GSM8K (alignment tax).
 
-# %%
+# %% id="b2c4c9c5"
 print(">>> SFT-only on GSM8K")
 sft_gsm8k = run_lm_eval(SFT_PATH, "gsm8k", LIMIT_GSM8K, num_fewshot=8, label="sft")
 gc.collect()
@@ -135,13 +139,13 @@ dpo_gsm8k = run_lm_eval(DPO_PATH, "gsm8k", LIMIT_GSM8K, num_fewshot=8, label="dp
 gc.collect()
 torch.cuda.empty_cache()
 
-# %% [markdown]
+# %% [markdown] id="8ba89083"
 # ## 4. MMLU — Broad knowledge (sampled)
 #
 # **What it tests:** 14K MCQ across 57 subjects. T4 limit: 500. BigGPU: 5K.
 # **Why DPO matters:** if MMLU drops a lot, you've over-aligned (capacity loss).
 
-# %%
+# %% id="76706e21"
 print(">>> SFT-only on MMLU (sampled)")
 sft_mmlu = run_lm_eval(SFT_PATH, "mmlu", LIMIT_MMLU, num_fewshot=5, label="sft")
 gc.collect()
@@ -152,7 +156,7 @@ dpo_mmlu = run_lm_eval(DPO_PATH, "mmlu", LIMIT_MMLU, num_fewshot=5, label="dpo")
 gc.collect()
 torch.cuda.empty_cache()
 
-# %% [markdown]
+# %% [markdown] id="52c4f6c2"
 # ## 5. AlpacaEval-lite — Win-rate vs reference (judge-based)
 #
 # Mini AlpacaEval 2 LC. 100 prompts, generate from both adapters, judge with gpt-4o-mini or
@@ -160,7 +164,7 @@ torch.cuda.empty_cache()
 #
 # Falls back to "skipped" if no API key. Set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` to enable.
 
-# %%
+# %% id="c2db2bec"
 from datasets import load_dataset
 
 
@@ -182,10 +186,11 @@ def load_alpaca_lite_prompts(n):
 alpaca_prompts = load_alpaca_lite_prompts(LIMIT_ALPACA)
 print(f"Loaded {len(alpaca_prompts)} AlpacaEval-lite prompts")
 
-# %%
+# %% id="83940109"
 def generate_with_adapter(adapter_path, prompts, max_new_tokens=256):
     """NB4 pattern: load base + adapter, generate, free memory."""
     from unsloth import FastLanguageModel
+    from unsloth.chat_templates import get_chat_template
     from peft import PeftModel
 
     base = "unsloth/Qwen2.5-3B-bnb-4bit" if COMPUTE_TIER == "T4" else "unsloth/Qwen2.5-7B-bnb-4bit"
@@ -194,7 +199,7 @@ def generate_with_adapter(adapter_path, prompts, max_new_tokens=256):
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=base, max_seq_length=max_len, dtype=None, load_in_4bit=True,
     )
-    from unsloth.chat_templates import get_chat_template
+    # Apply Qwen-2.5 chat template (base model tokenizers don't have it by default)
     tokenizer = get_chat_template(
         tokenizer,
         chat_template="qwen-2.5",
@@ -208,6 +213,7 @@ def generate_with_adapter(adapter_path, prompts, max_new_tokens=256):
             "{{ '<|im_start|>assistant\n' }}"
             "{% endif %}"
         )
+
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     model = PeftModel.from_pretrained(model, str(adapter_path))
@@ -229,7 +235,7 @@ def generate_with_adapter(adapter_path, prompts, max_new_tokens=256):
     return outputs
 
 
-# %%
+# %% id="1e2342d3"
 JUDGE_PROMPT = """You are evaluating two assistant responses for helpfulness.
 
 User prompt: {prompt}
@@ -252,10 +258,9 @@ def judge_pair(a, b, prompt):
         if os.environ.get("DEEPSEEK_API_KEY") and not base_url:
             base_url = "https://api.deepseek.com"
         client = OpenAI(api_key=api_key, base_url=base_url)
-        
+
         default_model = "deepseek-v4-flash" if os.environ.get("DEEPSEEK_API_KEY") else "gpt-4o-mini"
         judge_model = os.environ.get("JUDGE_MODEL", default_model)
-        
         resp = client.chat.completions.create(
             model=judge_model,
             messages=[{"role": "user", "content": JUDGE_PROMPT.format(prompt=prompt, a=a, b=b)}],
@@ -281,7 +286,7 @@ def judge_pair(a, b, prompt):
     return None
 
 
-# %%
+# %% id="47d2d287"
 import random
 
 if alpaca_prompts and (os.environ.get("OPENAI_API_KEY") or os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")):
@@ -318,10 +323,10 @@ else:
     print("⚠ No API key set, skipping AlpacaEval-lite. Set OPENAI_API_KEY or ANTHROPIC_API_KEY.")
     alpaca_winrate = None
 
-# %% [markdown]
+# %% [markdown] id="9fdd8d21"
 # ## 6. Aggregate + 4-bar comparison plot
 
-# %%
+# %% id="2efc118f"
 def extract_score(results, primary_metric):
     """Pull the primary metric from a lm-eval results dict."""
     if "error" in results:
@@ -363,7 +368,7 @@ for bench, scores in metrics.items():
     arrow = "↑" if delta > 0 else "↓" if delta < 0 else "—"
     print(f"  {bench:18s}  SFT: {scores['sft']:.3f}   DPO: {scores['dpo']:.3f}   Δ: {delta:+.3f} {arrow}")
 
-# %%
+# %% id="eecd50b2"
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -408,10 +413,10 @@ screenshot_dir.mkdir(parents=True, exist_ok=True)
 fig.savefig(screenshot_dir / "07-benchmark-comparison.png", dpi=120, bbox_inches="tight")
 plt.show()
 
-# %% [markdown]
+# %% [markdown] id="ab5e5ae7"
 # ## 7. Save results JSON (consumed by `make verify`)
 
-# %%
+# %% id="68e1e915"
 final = {
     "compute_tier": COMPUTE_TIER,
     "limits": {
@@ -429,7 +434,7 @@ final = {
 )
 print(f"\nSaved {EVAL_OUT / 'benchmark_results.json'}")
 
-# %% [markdown]
+# %% [markdown] id="e3a1f247"
 # ## 8. Vibe-coding callout — interpret your numbers
 #
 # Câu hỏi để brainstorm trước khi viết REFLECTION § 7:

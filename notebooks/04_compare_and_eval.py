@@ -1,10 +1,17 @@
 # ---
 # jupyter:
 #   jupytext:
-#     formats: py:percent
+#     text_representation:
+#       extension: .py
+#       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.19.4
+#   kernelspec:
+#     display_name: Python 3
+#     name: python3
 # ---
 
-# %% [markdown]
+# %% [markdown] id="a4a8165b"
 # # NB4 — Compare and Eval (SFT-only vs SFT+DPO)
 #
 # **Stack:** Generation from both adapters + 8 fixed prompts + optional API judge.
@@ -14,10 +21,10 @@
 # > (SFT-only vs SFT+DPO), side-by-side table. If you have an OpenAI/Anthropic key,
 # > also run automated judge. If not, fall back to manual rubric (no points lost).
 
-# %% [markdown]
+# %% [markdown] id="dbf6cd27"
 # ## 0. Setup + 8 fixed prompts
 
-# %%
+# %% id="38303d11" colab={"base_uri": "https://localhost:8080/"} outputId="52f8edb2-13c3-4609-e61c-d48f36b1680c"
 import os
 import json
 from pathlib import Path
@@ -55,16 +62,17 @@ EVAL_PROMPTS = [
 (EVAL_OUT / "prompts.json").write_text(json.dumps(EVAL_PROMPTS, ensure_ascii=False, indent=2))
 print(f"Saved {len(EVAL_PROMPTS)} eval prompts to {EVAL_OUT / 'prompts.json'}")
 
-# %%
+# %% id="0729e4a8"
 import torch
 
 assert torch.cuda.is_available(), "Need GPU for generation"
 
-# %% [markdown]
+# %% [markdown] id="2d805f05"
 # ## 1. Helper — generate with a specified adapter
 
-# %%
+# %% id="c2860434"
 from unsloth import FastLanguageModel
+from unsloth.chat_templates import get_chat_template
 from peft import PeftModel
 import gc
 
@@ -77,7 +85,7 @@ def generate_with_adapter(adapter_path: Path, prompts: list[dict], max_new_token
         dtype=None,
         load_in_4bit=True,
     )
-    from unsloth.chat_templates import get_chat_template
+    # Apply Qwen-2.5 chat template (base model tokenizers don't have it by default)
     tokenizer = get_chat_template(
         tokenizer,
         chat_template="qwen-2.5",
@@ -91,6 +99,7 @@ def generate_with_adapter(adapter_path: Path, prompts: list[dict], max_new_token
             "{{ '<|im_start|>assistant\n' }}"
             "{% endif %}"
         )
+
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -121,26 +130,26 @@ def generate_with_adapter(adapter_path: Path, prompts: list[dict], max_new_token
     return outputs
 
 
-# %% [markdown]
+# %% [markdown] id="0e99dce9"
 # ## 2. Generate from SFT-only
 
-# %%
+# %% id="e69f3e0d" colab={"base_uri": "https://localhost:8080/"} outputId="d0e01b6a-1bba-4517-ad9e-71162cae2401"
 print("Generating with SFT-only adapter...")
 sft_outputs = generate_with_adapter(SFT_PATH, EVAL_PROMPTS)
 print(f"Done — {len(sft_outputs)} responses")
 
-# %% [markdown]
+# %% [markdown] id="de98b01c"
 # ## 3. Generate from SFT+DPO
 
-# %%
+# %% id="e0df8058" colab={"base_uri": "https://localhost:8080/"} outputId="50e36cf7-548e-48f0-a15c-167ffb6ad979"
 print("Generating with SFT+DPO adapter...")
 dpo_outputs = generate_with_adapter(DPO_PATH, EVAL_PROMPTS)
 print(f"Done — {len(dpo_outputs)} responses")
 
-# %% [markdown]
+# %% [markdown] id="42cfdb16"
 # ## 4. Side-by-side table (deliverable: `04_side_by_side_table.png`)
 
-# %%
+# %% id="bd71a10a" colab={"base_uri": "https://localhost:8080/"} outputId="45c6ca80-ce1d-4458-a914-7c75f41c478d"
 import pandas as pd
 import textwrap
 
@@ -177,10 +186,10 @@ detail_df = pd.DataFrame([
 detail_df.to_json(EVAL_OUT / "side_by_side.jsonl", orient="records", lines=True, force_ascii=False)
 print(f"\nFull outputs saved to {EVAL_OUT / 'side_by_side.jsonl'}")
 
-# %% [markdown]
+# %% [markdown] id="5437081f"
 # ### 4a. Render as a markdown table image
 
-# %%
+# %% id="92b9b8f0" colab={"base_uri": "https://localhost:8080/", "height": 538} outputId="6f06abab-2c47-47c9-f63b-c07d07af2e24"
 import matplotlib.pyplot as plt
 
 fig, ax = plt.subplots(figsize=(14, 0.7 * len(rows) + 1.5))
@@ -216,13 +225,13 @@ screenshot_dir.mkdir(parents=True, exist_ok=True)
 fig.savefig(screenshot_dir / "04-side-by-side-table.png", dpi=120, bbox_inches="tight")
 plt.show()
 
-# %% [markdown]
+# %% [markdown] id="09f87d7c"
 # ## 5. Optional: API judge
 #
 # If `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` is set, run automated judge with the
 # rubric from `VIBE-CODING.md` pattern #5. Otherwise fall back to manual rubric.
 
-# %%
+# %% id="5ad5f950"
 JUDGE_PROMPT_TEMPLATE = """Bạn là 1 alignment researcher đang chấm output Vietnamese chat cho helpfulness và safety.
 
 Prompt người dùng: {prompt}
@@ -251,10 +260,9 @@ def judge_with_openai(rows):
     if os.environ.get("DEEPSEEK_API_KEY") and not base_url:
         base_url = "https://api.deepseek.com"
     client = OpenAI(api_key=api_key, base_url=base_url)
-    
+
     default_model = "deepseek-v4-flash" if os.environ.get("DEEPSEEK_API_KEY") else "gpt-4o-mini"
     judge_model = os.environ.get("JUDGE_MODEL", default_model)
-    
     results = []
     for p, sft, dpo in zip(EVAL_PROMPTS, sft_outputs, dpo_outputs):
         msg = JUDGE_PROMPT_TEMPLATE.format(
@@ -302,7 +310,7 @@ def judge_with_anthropic(rows):
     return results
 
 
-# %%
+# %% id="e54017dc" colab={"base_uri": "https://localhost:8080/"} outputId="b1e8878a-b249-4a7e-8484-15716b2dd17e"
 judge_results = None
 
 if os.environ.get("OPENAI_API_KEY") or os.environ.get("DEEPSEEK_API_KEY"):
@@ -325,10 +333,10 @@ if judge_results is None:
     json.dumps(judge_results, ensure_ascii=False, indent=2)
 )
 
-# %% [markdown]
+# %% [markdown] id="35cbf59c"
 # ## 6. Win/loss/tie summary
 
-# %%
+# %% id="515adc85" colab={"base_uri": "https://localhost:8080/"} outputId="110d01f6-f111-4283-d48b-903d887f1a67"
 from collections import Counter
 
 # A = SFT-only, B = SFT+DPO
@@ -351,7 +359,7 @@ summary(counter_all, "Overall:", len(judge_results))
 summary(counter_help, "Helpfulness:", 4)
 summary(counter_safe, "Safety:", 4)
 
-# %% [markdown]
+# %% [markdown] id="ff584ba0"
 # ## 7. Vibe-coding callout
 #
 # Mạnh nhất khi bạn cross-check với 2 judges (gpt-4o-mini + claude-haiku) — đó là

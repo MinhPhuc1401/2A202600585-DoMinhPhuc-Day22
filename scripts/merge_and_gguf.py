@@ -47,27 +47,37 @@ def main():
     import gc
     import torch
 
-    # Step 1: load + stack SFT then DPO
+    # Step 1: load clean base in 4-bit
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=base, max_seq_length=max_len, dtype=None, load_in_4bit=True,
+        model_name=base, max_seq_length=max_len, dtype=None, load_in_4bit=True,   # Must be True so Unsloth enables LoRA merge patches
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    model = PeftModel.from_pretrained(model, args.sft_path)
-    print("Loaded SFT-mini adapter")
+    dpo_path_obj = Path(args.dpo_path)
+    if not dpo_path_obj.exists():
+        raise FileNotFoundError(f"Final DPO adapter not found: {dpo_path_obj}")
+
+    model = PeftModel.from_pretrained(model, str(dpo_path_obj), is_trainable=False)
+    print(f"Loaded final SFT+DPO adapter from: {dpo_path_obj}")
+    print(f"Model class: {model.__class__.__name__}")
+    if hasattr(model, "active_adapters"):
+        print(f"Active PEFT adapters: {model.active_adapters}")
 
     # Step 2: save merged FP16
+    # Merge the final SFT+DPO adapter into the base weights
+    # and save a Hugging Face FP16 model.
     model.save_pretrained_merged(
         args.merged_output, tokenizer, save_method="merged_16bit",
     )
-    print(f"Saved merged FP16 to {args.merged_output}")
+    print(f"Saved merged FP16 model to: {args.merged_output}")
 
     del model
     gc.collect()
     torch.cuda.empty_cache()
 
     # Step 3: GGUF quantize each tier
+    # Reload the merged model in full precision (load_in_4bit=False)
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=args.merged_output,
         max_seq_length=max_len, dtype=None, load_in_4bit=False,
